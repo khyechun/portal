@@ -793,6 +793,7 @@ export default class Annotator extends Component<
         .then(response => {
           if (this.currentAsset.url === asset.url && singleAnalysis) {
             const videoElement = this.videoOverlay.getElement();
+            console.log(response.data)
             this.setState({ currVideoAnnotation: response.data })
             /**
              * Recursive Callback function that

@@ -16,7 +16,7 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
   const { confidence, currVideoAnnotation, frameInterval, videoElement } = props
   const [analyticsData, setAnalyticsData] = useState([{ data: [] }]);
   const annotationOccurences: any = useRef({})
-  const frameToIndexMap: any = useRef({})
+  const dataPointIndexToFrameIndexMap: any = useRef({})
 
   useEffect(() => {
     if (!currVideoAnnotation) return
@@ -47,7 +47,7 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
     },
     tooltip: {
       custom: ({ dataPointIndex }: any) => {
-        const occurences = annotationOccurences.current[frameToIndexMap.current[dataPointIndex]]
+        const occurences = annotationOccurences.current[dataPointIndexToFrameIndexMap.current[dataPointIndex]]
         let elements = ''
         Object.keys(occurences).forEach((key) => { elements += `<div>${key} : ${occurences[key]}</div>` })
         return '<div style="padding:5px;">' +
@@ -62,20 +62,20 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
     const series: any = [{ data: [] }]
     const secondsInterval = frameInterval / currVideoAnnotation.fps;
     let currSecond = 0
-    let frame = 0
-    let index = 0
+    let frameIndex = 0
+    let dataPointIndex = 0
     Object.keys(currVideoAnnotation.frames).forEach((key) => {
-      annotationOccurences.current[frame] = {}
+      annotationOccurences.current[frameIndex] = {}
       for (const item of currVideoAnnotation.frames[key]) {
         const isOverConfidenceLevel = item.confidence > confidence
         //Avoid writing the same datapoints into the series multiple times
         //Improves rendering performance since there are data points to render
-        if (annotationOccurences.current[frame][item.tag.name] === undefined && isOverConfidenceLevel) {
-          annotationOccurences.current[frame][item.tag.name] = 0
+        if (annotationOccurences.current[frameIndex][item.tag.name] === undefined && isOverConfidenceLevel) {
+          annotationOccurences.current[frameIndex][item.tag.name] = 0
         } else if (isOverConfidenceLevel) {
-          annotationOccurences.current[frame][item.tag.name]++
+          annotationOccurences.current[frameIndex][item.tag.name]++
         }
-        if (isOverConfidenceLevel && annotationOccurences.current[frame][item.tag.name] === 0) {
+        if (isOverConfidenceLevel && annotationOccurences.current[frameIndex][item.tag.name] === 0) {
           const data = {
             x: item.tag.name,
             y: [
@@ -83,14 +83,14 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
               new Date((currSecond + secondsInterval) * 1000).getTime()
             ]
           }
-          annotationOccurences.current[frame][item.tag.name]++
+          annotationOccurences.current[frameIndex][item.tag.name]++
           series[0].data.push(data)
-          frameToIndexMap.current[index] = frame
-          index++
+          dataPointIndexToFrameIndexMap.current[dataPointIndex] = frameIndex
+          dataPointIndex++
         }
       }
       currSecond += secondsInterval
-      frame++
+      frameIndex++
     })
     setAnalyticsData(series)
   };

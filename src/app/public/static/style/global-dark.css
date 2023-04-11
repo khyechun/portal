@@ -25,3 +25,7 @@ body {
 :focus:not(button, input) {
   outline: none !important;
 }
+
+text{
+  fill: #fff;
+}

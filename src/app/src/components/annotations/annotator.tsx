@@ -49,6 +49,7 @@ import FileModal from "./filemodal";
 import AnnotatorSettings from "./utils/annotatorsettings";
 import FormatTimerSeconds from "./utils/timer";
 import { RegisteredModel } from "./model";
+import AnalyticsBar from "./analyticsBar";
 
 type Point = [number, number];
 type MapType = L.DrawMap;
@@ -148,6 +149,9 @@ interface AnnotatorState {
     opacity: number;
   };
   currAnnotationPlaybackId: number;
+  isAnalyticsMode: boolean;
+  currVideoAnnotation: any;
+  // analyticsResult: Array
 }
 
 /**
@@ -246,6 +250,8 @@ export default class Annotator extends Component<
         },
       },
       currAnnotationPlaybackId: 0,
+      isAnalyticsMode: false,
+      currVideoAnnotation: null,
     };
 
     this.toaster = new Toaster({}, {});
@@ -748,7 +754,6 @@ export default class Annotator extends Component<
     const loadedModelHash = this.props.loadedModel.hash;
     /* Hidden annotations reset every time this is initialized */
     this.setState({ hiddenAnnotations: new Set<string>() });
-
     if (
       asset.type === "image" &&
       (this.state.inferenceOptions.bulkAnalysisStatus !== "video" ||
@@ -788,6 +793,7 @@ export default class Annotator extends Component<
         .then(response => {
           if (this.currentAsset.url === asset.url && singleAnalysis) {
             const videoElement = this.videoOverlay.getElement();
+            this.setState({ currVideoAnnotation: response.data })
             /**
              * Recursive Callback function that
              * @param {DOMHighResTimeStamp} now
@@ -807,7 +813,7 @@ export default class Annotator extends Component<
               const key = Math.floor(
                 quotient * secondsInterval * 1000
               ).toString();
-
+              
               if (response.data.frames[key]) {
                 this.updateAnnotations(response.data.frames[key]);
               }
@@ -820,6 +826,7 @@ export default class Annotator extends Component<
               const videoId = (videoElement as any).requestVideoFrameCallback(
                 videoFrameCallback
               );
+
               this.setState({ currAnnotationPlaybackId: videoId });
             };
 
@@ -953,6 +960,10 @@ export default class Annotator extends Component<
       this.filterAnnotationVisibility();
     });
   };
+
+  private toggleAnalyticsMode = () => {
+    this.setState({ isAnalyticsMode: !this.state.isAnalyticsMode })
+  }
 
   private handleChangeInAdvancedSettings = (value: any, key: string) => {
     this.setState(prevState => {
@@ -1100,11 +1111,11 @@ export default class Annotator extends Component<
           (this.state.filterArr.length === 0 ||
             /* Check if tag is present in filter (CASE-INSENSITIVE) */
             this.state.showSelected ===
-              this.state.filterArr.some(filter =>
-                invertedProjectTags[annotation.options.annotationTag]
-                  .toLowerCase()
-                  .includes(filter.toLowerCase())
-              )) &&
+            this.state.filterArr.some(filter =>
+              invertedProjectTags[annotation.options.annotationTag]
+                .toLowerCase()
+                .includes(filter.toLowerCase())
+            )) &&
           annotation.options.confidence >= this.state.confidence
       )
       .forEach((confidentAnnotation: any) => {
@@ -1170,6 +1181,7 @@ export default class Annotator extends Component<
     console.log("asset", asset.url);
     console.log("currentasset", this.currentAsset.url);
     console.log("single analysis", singleAnalysis);
+    this.setState({ currVideoAnnotation: null })
 
     const currentVideoElement = this.videoOverlay.getElement();
     if (!isAssetReselection) {
@@ -1572,17 +1584,27 @@ export default class Annotator extends Component<
             {/* Appends Styling Prefix */}
             <Card
               className={[isCollapsed, "image-bar"].join("")}
+              style={{ display: this.state.isAnalyticsMode ? "block" : "flex" }}
               id={"image-bar"}
             >
-              <ImageBar
-                ref={ref => {
-                  this.imagebarRef = ref;
-                }}
-                /* Only visible assets should be shown */
-                assetList={visibleAssets}
-                callbacks={{ selectAssetCallback: this.selectAsset }}
-                {...this.props}
-              />
+              {this.state.isAnalyticsMode ? (
+                <AnalyticsBar
+                  videoElement={this.videoOverlay.getElement()}
+                  frameInterval={this.state.inferenceOptions.video.frameInterval}
+                  confidence={this.state.confidence}
+                  currVideoAnnotation={this.state.currVideoAnnotation} />
+              ) :
+                <ImageBar
+                  ref={ref => {
+                    this.imagebarRef = ref;
+                  }}
+                  /* Only visible assets should be shown */
+                  assetList={visibleAssets}
+                  callbacks={{ selectAssetCallback: this.selectAsset }}
+                  {...this.props}
+                />
+              }
+
             </Card>
           </div>
 
@@ -1613,14 +1635,22 @@ export default class Annotator extends Component<
             <Card className={"main-annotator"}>
               <div id="annotation-map" className={"style-annotator"} />
               {this.backgroundImg ? (
-                <div className="annotator-settings-button">
-                  <AnnotatorSettings
-                    annotationOptions={this.state.annotationOptions}
-                    callbacks={{
-                      setAnnotatedAssetsHidden: this.setAnnotatedAssetsHidden,
-                      setAnnotationOptions: this.setAnnotationOptions,
-                    }}
-                  />
+                <div>
+                  <div className="annotator-settings-button">
+                    <AnnotatorSettings
+                      annotationOptions={this.state.annotationOptions}
+                      callbacks={{
+                        setAnnotatedAssetsHidden: this.setAnnotatedAssetsHidden,
+                        setAnnotationOptions: this.setAnnotationOptions,
+                      }}
+                    />
+                  </div>
+                  {this.state.currVideoAnnotation &&
+                    <div className="annotator-analytics-button">
+                      <Button icon="chart" onClick={this.toggleAnalyticsMode} />
+                    </div>
+                  }
+
                 </div>
               ) : null}
             </Card>

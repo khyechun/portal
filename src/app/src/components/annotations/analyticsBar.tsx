@@ -9,11 +9,11 @@ interface AnalyticsProps {
     frames: any
   };
   frameInterval: number;
-  videoElement: any;
+  handleChartClick: (time: number) => void
 }
 
 export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactElement {
-  const { confidence, currVideoAnnotation, frameInterval, videoElement } = props
+  const { confidence, currVideoAnnotation, frameInterval, handleChartClick } = props
   const [analyticsData, setAnalyticsData] = useState([{ data: [] }]);
   const annotationOccurences: any = useRef({})
   const dataPointIndexToFrameIndexMap: any = useRef({})
@@ -30,7 +30,7 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
       events: {
         dataPointSelection: (event: any, chartContext: any, config: any) => {
           const time = config.w.globals.seriesRangeStart[0][config.dataPointIndex]
-          videoElement.currentTime = time / 1000
+          handleChartClick(time / 1000)
         }
       }
     },
@@ -68,8 +68,6 @@ export default memo(function AnalyticsBar(props: AnalyticsProps): React.ReactEle
       annotationOccurences.current[frameIndex] = {}
       for (const item of currVideoAnnotation.frames[key]) {
         const isOverConfidenceLevel = item.confidence > confidence
-        //Avoid writing the same datapoints into the series multiple times
-        //Improves rendering performance since there are data points to render
         if (annotationOccurences.current[frameIndex][item.tag.name] === undefined && isOverConfidenceLevel) {
           annotationOccurences.current[frameIndex][item.tag.name] = 0
         } else if (isOverConfidenceLevel) {

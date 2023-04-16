@@ -814,7 +814,7 @@ export default class Annotator extends Component<
               const key = Math.floor(
                 quotient * secondsInterval * 1000
               ).toString();
-              
+
               if (response.data.frames[key]) {
                 this.updateAnnotations(response.data.frames[key]);
               }
@@ -1548,6 +1548,12 @@ export default class Annotator extends Component<
     );
   }
 
+  private handleChartClick = (time: number) => {
+    const videoElement = this.videoOverlay?.getElement()
+    if (!videoElement) return
+    videoElement.currentTime = time
+  }
+
   render(): JSX.Element {
     /* Prefix for Dynamic Styling of Collapsing Image List */
     const collapsedButtonTheme = this.props.useDarkTheme ? "" : "light-";
@@ -1590,7 +1596,7 @@ export default class Annotator extends Component<
             >
               {this.state.isAnalyticsMode ? (
                 <AnalyticsBar
-                  videoElement={this.videoOverlay.getElement()}
+                  handleChartClick={this.handleChartClick}
                   frameInterval={this.state.inferenceOptions.video.frameInterval}
                   confidence={this.state.confidence}
                   currVideoAnnotation={this.state.currVideoAnnotation} />

@@ -151,6 +151,7 @@ interface AnnotatorState {
   currAnnotationPlaybackId: number;
   isAnalyticsMode: boolean;
   currVideoAnnotation: any;
+  analyticsData: any;
   // analyticsResult: Array
 }
 
@@ -252,6 +253,7 @@ export default class Annotator extends Component<
       currAnnotationPlaybackId: 0,
       isAnalyticsMode: false,
       currVideoAnnotation: null,
+      analyticsData: [{ data: [] }]
     };
 
     this.toaster = new Toaster({}, {});
@@ -793,8 +795,8 @@ export default class Annotator extends Component<
         .then(response => {
           if (this.currentAsset.url === asset.url && singleAnalysis) {
             const videoElement = this.videoOverlay.getElement();
-            console.log(response.data)
             this.setState({ currVideoAnnotation: response.data })
+            this.formatAnalyticsData()
             /**
              * Recursive Callback function that
              * @param {DOMHighResTimeStamp} now
@@ -959,6 +961,9 @@ export default class Annotator extends Component<
     /* Set Confidence Value based on Slider moving */
     this.setState({ confidence: value / 100 }, () => {
       this.filterAnnotationVisibility();
+      if(this.state.isAnalyticsMode){
+        this.formatAnalyticsData();
+      }
     });
   };
 
@@ -1554,6 +1559,31 @@ export default class Annotator extends Component<
     videoElement.currentTime = time
   }
 
+  private formatAnalyticsData = () => {
+    const analyticsData: any = [{ data: [] }]
+    const secondsInterval = this.state.inferenceOptions.video.frameInterval * 1000 / this.state.currVideoAnnotation.fps;
+    const annotationOccurences: any = {}
+    Object.keys(this.state.currVideoAnnotation.frames).forEach((time: any) => {
+      const frame = this.state.currVideoAnnotation.frames[time];
+      const occurences: any = {}
+      frame.filter((annotation: any) =>
+        annotation.confidence > this.state.confidence
+      ).forEach((annotation: any) => {
+        if (occurences[annotation.tag.name]) {
+          occurences[annotation.tag.name] += 1
+        } else {
+          occurences[annotation.tag.name] = 1
+          analyticsData[0].data.push({
+            x: annotation.tag.name,
+            y: [new Date(parseInt(time)).getTime(), new Date(parseInt(time) + secondsInterval).getTime()]
+          })
+        }
+      })
+      annotationOccurences[time] = occurences
+    })
+    this.setState({ analyticsData: { analyticsData, annotationOccurences } })
+  }
+
   render(): JSX.Element {
     /* Prefix for Dynamic Styling of Collapsing Image List */
     const collapsedButtonTheme = this.props.useDarkTheme ? "" : "light-";
@@ -1596,10 +1626,8 @@ export default class Annotator extends Component<
             >
               {this.state.isAnalyticsMode ? (
                 <AnalyticsBar
-                  handleChartClick={this.handleChartClick}
-                  frameInterval={this.state.inferenceOptions.video.frameInterval}
-                  confidence={this.state.confidence}
-                  currVideoAnnotation={this.state.currVideoAnnotation} />
+                  analyticsData={this.state.analyticsData}
+                  handleChartClick={this.handleChartClick} />
               ) :
                 <ImageBar
                   ref={ref => {
